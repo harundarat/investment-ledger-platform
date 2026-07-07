@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 CREATE TABLE IF NOT EXISTS product_prices (
   id UUID PRIMARY KEY,
+  product_id UUID NOT NULL REFERENCES products(id),
   price BIGINT NOT NULL,
   price_date TIMESTAMPTZ NOT NULL
 );

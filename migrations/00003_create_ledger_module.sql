@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS journal_entries (
   id UUID PRIMARY KEY,
   entry_type journal_entry_type NOT NULL,
   description TEXT,
-  idempotency_key TEXT NOT NULL,
+  idempotency_key TEXT UNIQUE NOT NULL,
   occured_at TIMESTAMPTZ NOT NULL
 );
 
