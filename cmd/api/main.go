@@ -6,10 +6,16 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/harundarat/investment-ledger-platform/internal/config"
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	_, err := config.Load()
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("config: error loading .env file")
+	}
+
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
 	}
@@ -24,5 +30,5 @@ func main() {
 		return c.SendString("OK")
 	})
 
-	log.Fatal(app.Listen(":8000"))
+	log.Fatal(app.Listen(":" + cfg.Port))
 }
