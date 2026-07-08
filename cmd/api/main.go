@@ -5,9 +5,15 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/harundarat/investment-ledger-platform/internal/config"
 )
 
 func main() {
+	_, err := config.Load()
+	if err != nil {
+		log.Fatalf("config: %v", err)
+	}
+
 	app := fiber.New(fiber.Config{
 		AppName:      "investment-ledger-platform",
 		ReadTimeout:  10 * time.Second,
