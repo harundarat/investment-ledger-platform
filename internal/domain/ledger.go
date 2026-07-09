@@ -40,7 +40,7 @@ type JournalEntry struct {
 	EntryType      JournalEntryType `json:"entry_type"`
 	Description    *string          `json:"description"`
 	IdempotencyKey string           `json:"idempotency_key"`
-	OccuredAt      time.Time        `json:"occured_at"`
+	OccurredAt     time.Time        `json:"occurred_at"`
 }
 
 type JournalLineDirection string

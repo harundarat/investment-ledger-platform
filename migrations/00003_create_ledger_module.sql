@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS journal_entries (
   entry_type journal_entry_type NOT NULL,
   description TEXT,
   idempotency_key TEXT UNIQUE NOT NULL,
-  occured_at TIMESTAMPTZ NOT NULL
+  occurred_at TIMESTAMPTZ NOT NULL
 );
 
 CREATE TYPE journal_line_direction AS ENUM (
@@ -46,9 +46,10 @@ CREATE TABLE IF NOT EXISTS journal_lines (
 );
 
 -- +goose Down
-DROP TABLE IF EXISTS accounts;
-DROP TABLE IF EXISTS journal_entries;
 DROP TABLE IF EXISTS journal_lines;
+DROP TABLE IF EXISTS journal_entries;
+DROP TABLE IF EXISTS accounts;
 DROP TYPE IF EXISTS account_type;
-DROP TYPE IF EXISTS journal_entry_type;
 DROP TYPE IF EXISTS journal_line_direction;
+DROP TYPE IF EXISTS journal_entry_type;
+DROP TYPE IF EXISTS account_type;
