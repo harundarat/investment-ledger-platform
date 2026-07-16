@@ -16,6 +16,26 @@ const (
 	Expense   AccountType = "expense"
 )
 
+type AccountCode int
+
+const (
+	CodePlatform AccountCode = 1000
+	CodeUser     AccountCode = 1001
+)
+
+type AccountName string
+
+const (
+	UserWallet     AccountName = "User Wallet"
+	PlatformWallet AccountName = "Platform Wallet"
+)
+
+type AccountCurrency string
+
+const (
+	IDR AccountCurrency = "IDR"
+)
+
 type Account struct {
 	ID       uuid.UUID   `json:"id"`
 	Code     int         `json:"code"`
