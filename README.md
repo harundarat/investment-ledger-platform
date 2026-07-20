@@ -47,6 +47,44 @@ curl -X POST http://localhost:3000/users \
   }'
 ```
 
+Jika body bukan JSON yang valid, API mengembalikan `400 Bad Request`:
+
+```json
+{
+  "error": {
+    "code": "MALFORMED_JSON",
+    "message": "request body must contain valid JSON"
+  }
+}
+```
+
+Jika JSON valid tetapi field tidak memenuhi aturan input, API mengembalikan
+`422 Unprocessable Entity` dengan seluruh detail validasi:
+
+```json
+{
+  "error": {
+    "code": "VALIDATION_FAILED",
+    "message": "request validation failed",
+    "details": [
+      {
+        "field": "email",
+        "rule": "email",
+        "message": "email must be a valid email address"
+      },
+      {
+        "field": "password",
+        "rule": "min",
+        "message": "password must be at least 8 characters"
+      }
+    ]
+  }
+}
+```
+
+Client sebaiknya menggunakan `error.code` untuk menentukan alur program dan
+`error.message` atau `error.details` untuk ditampilkan kepada pengguna.
+
 ### Ambil profile
 
 ```sh

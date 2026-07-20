@@ -43,6 +43,7 @@ func main() {
 		AppName:      "investment-ledger-platform",
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
+		ErrorHandler: handler.ErrorHandler,
 	})
 
 	app.Get("/health", func(c fiber.Ctx) error {
