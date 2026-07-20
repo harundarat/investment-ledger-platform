@@ -16,8 +16,13 @@ import (
 )
 
 type UserService interface {
-	Register(ctx context.Context, userInput dto.CreateUserInput) (*domain.User, error)
+	Register(ctx context.Context, userInput dto.CreateUserInput) (*UserRegistrationResult, error)
 	GetProfile(ctx context.Context, id uuid.UUID) (*domain.User, error)
+}
+
+type UserRegistrationResult struct {
+	User                *domain.User
+	IdempotencyReplayed bool
 }
 
 type TransactionManager interface {
@@ -54,7 +59,7 @@ func NewUserService(
 	}
 }
 
-func (us *userService) Register(ctx context.Context, userInput dto.CreateUserInput) (*domain.User, error) {
+func (us *userService) Register(ctx context.Context, userInput dto.CreateUserInput) (*UserRegistrationResult, error) {
 	idempotencyKey := strings.TrimSpace(userInput.IdempotencyKey)
 	if idempotencyKey == "" {
 		return nil, domain.ErrIdempotencyKeyRequired
@@ -93,7 +98,7 @@ func (us *userService) Register(ctx context.Context, userInput dto.CreateUserInp
 		Currency: string(domain.IDR),
 	}
 
-	var registeredUser *domain.User
+	result := &UserRegistrationResult{}
 	err = us.transactionManager.WithinTransaction(ctx, func(txCtx context.Context) error {
 		registration, acquired, err := us.idempotencyRepository.Acquire(txCtx, idempotencyKey, requestFingerprint, newUserID)
 		if err != nil {
@@ -104,7 +109,8 @@ func (us *userService) Register(ctx context.Context, userInput dto.CreateUserInp
 				return domain.ErrIdempotencyKeyReused
 			}
 
-			registeredUser, err = us.userRepository.GetProfile(txCtx, registration.UserID)
+			result.User, err = us.userRepository.GetProfile(txCtx, registration.UserID)
+			result.IdempotencyReplayed = true
 			return err
 		}
 
@@ -112,14 +118,14 @@ func (us *userService) Register(ctx context.Context, userInput dto.CreateUserInp
 			return err
 		}
 
-		registeredUser = newUser
+		result.User = newUser
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return registeredUser, nil
+	return result, nil
 }
 
 func (us *userService) GetProfile(ctx context.Context, id uuid.UUID) (*domain.User, error) {

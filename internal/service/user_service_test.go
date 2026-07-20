@@ -83,7 +83,7 @@ func TestUserServiceRegisterCreatesUserAndWallet(t *testing.T) {
 	idempotencyRepo := &fakeIdempotencyRepository{}
 	service := NewUserService(repo, transactionManager, idempotencyRepo, "test-secret")
 
-	user, err := service.Register(context.Background(), dto.CreateUserInput{
+	result, err := service.Register(context.Background(), dto.CreateUserInput{
 		Name:           "  Harun  ",
 		Email:          "HARUN@EXAMPLE.COM ",
 		Password:       "password-yang-kuat",
@@ -92,6 +92,7 @@ func TestUserServiceRegisterCreatesUserAndWallet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
+	user := result.User
 
 	if user.Name != "Harun" {
 		t.Fatalf("user.Name = %q, want %q", user.Name, "Harun")
@@ -124,6 +125,9 @@ func TestUserServiceRegisterCreatesUserAndWallet(t *testing.T) {
 	if repo.savedAccount.UserID == nil || *repo.savedAccount.UserID != user.ID {
 		t.Fatal("wallet account must belong to the created user")
 	}
+	if result.IdempotencyReplayed {
+		t.Fatal("first registration must not be marked as an idempotency replay")
+	}
 }
 
 func TestUserServiceRegisterReplaysIdempotentRequest(t *testing.T) {
@@ -136,17 +140,23 @@ func TestUserServiceRegisterReplaysIdempotentRequest(t *testing.T) {
 		IdempotencyKey: "register-harun-001",
 	}
 
-	firstUser, err := service.Register(context.Background(), input)
+	firstResult, err := service.Register(context.Background(), input)
 	if err != nil {
 		t.Fatalf("first Register() error = %v", err)
 	}
-	secondUser, err := service.Register(context.Background(), input)
+	secondResult, err := service.Register(context.Background(), input)
 	if err != nil {
 		t.Fatalf("second Register() error = %v", err)
 	}
 
-	if firstUser.ID != secondUser.ID {
-		t.Fatalf("idempotent retry returned user ID %s, want %s", secondUser.ID, firstUser.ID)
+	if firstResult.IdempotencyReplayed {
+		t.Fatal("first registration must not be marked as an idempotency replay")
+	}
+	if !secondResult.IdempotencyReplayed {
+		t.Fatal("second registration must be marked as an idempotency replay")
+	}
+	if firstResult.User.ID != secondResult.User.ID {
+		t.Fatalf("idempotent retry returned user ID %s, want %s", secondResult.User.ID, firstResult.User.ID)
 	}
 	if repo.saveCalls != 1 {
 		t.Fatalf("Save calls = %d, want 1 after retry", repo.saveCalls)

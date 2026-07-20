@@ -34,7 +34,9 @@ Aplikasi membutuhkan PostgreSQL dan Goose untuk menjalankan migration.
 
 ### Buat user
 
-`POST /users` wajib menyertakan header `Idempotency-Key`. Retry dengan key dan payload yang sama akan mengembalikan user yang sama tanpa membuat wallet tambahan.
+`POST /users` wajib menyertakan header `Idempotency-Key`. Retry dengan key
+dan payload yang sama akan mengembalikan user yang sama tanpa membuat wallet
+tambahan.
 
 ```sh
 curl -X POST http://localhost:3000/users \
@@ -46,6 +48,43 @@ curl -X POST http://localhost:3000/users \
     "password": "password-yang-kuat"
   }'
 ```
+
+Request pertama mengembalikan `201 Created` dan menandai bahwa respons bukan
+hasil replay:
+
+```json
+{
+  "message": "user created",
+  "data": {
+    "id": "019f7d55-6e6d-7852-9c1f-f4c07422d534",
+    "name": "Harun",
+    "email": "harun@example.com"
+  },
+  "meta": {
+    "idempotency_replayed": false
+  }
+}
+```
+
+Retry dengan key dan payload yang sama mengembalikan `200 OK`, header
+`Idempotency-Replayed: true`, dan metadata berikut:
+
+```json
+{
+  "message": "idempotent request replayed",
+  "data": {
+    "id": "019f7d55-6e6d-7852-9c1f-f4c07422d534",
+    "name": "Harun",
+    "email": "harun@example.com"
+  },
+  "meta": {
+    "idempotency_replayed": true
+  }
+}
+```
+
+Key yang sama dengan payload berbeda ditolak sebagai konflik idempotensi.
+Key baru dengan email yang telah terdaftar ditolak sebagai konflik email.
 
 Jika body bukan JSON yang valid, API mengembalikan `400 Bad Request`:
 

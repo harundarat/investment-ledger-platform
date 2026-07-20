@@ -12,8 +12,13 @@ type ErrorResponse struct {
 	Details []ErrorDetail `json:"details,omitempty"`
 }
 
+type ResponseMeta struct {
+	IdempotencyReplayed bool `json:"idempotency_replayed"`
+}
+
 type Envelope struct {
 	Message string         `json:"message,omitempty"`
 	Data    any            `json:"data,omitempty"`
+	Meta    *ResponseMeta  `json:"meta,omitempty"`
 	Error   *ErrorResponse `json:"error,omitempty"`
 }

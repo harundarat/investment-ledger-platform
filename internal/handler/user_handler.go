@@ -68,7 +68,7 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 		))
 	}
 
-	user, err := h.userService.Register(c.Context(), dto.CreateUserInput{
+	result, err := h.userService.Register(c.Context(), dto.CreateUserInput{
 		Name:           request.Name,
 		Email:          request.Email,
 		Password:       request.Password,
@@ -78,7 +78,19 @@ func (h *UserHandler) Create(c fiber.Ctx) error {
 		return handleServiceError(c, err)
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(success(userResponse(user), "user created"))
+	status := fiber.StatusCreated
+	message := "user created"
+	if result.IdempotencyReplayed {
+		status = fiber.StatusOK
+		message = "idempotent request replayed"
+		c.Set("Idempotency-Replayed", "true")
+	}
+
+	return c.Status(status).JSON(successWithMeta(
+		userResponse(result.User),
+		message,
+		&dto.ResponseMeta{IdempotencyReplayed: result.IdempotencyReplayed},
+	))
 }
 
 func (h *UserHandler) GetProfile(c fiber.Ctx) error {

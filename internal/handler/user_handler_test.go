@@ -15,10 +15,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/harundarat/investment-ledger-platform/internal/domain"
 	"github.com/harundarat/investment-ledger-platform/internal/dto"
+	"github.com/harundarat/investment-ledger-platform/internal/service"
 )
 
 type fakeUserService struct {
-	registerUser   *domain.User
+	registerResult *service.UserRegistrationResult
 	registerErr    error
 	profileUser    *domain.User
 	profileErr     error
@@ -26,10 +27,10 @@ type fakeUserService struct {
 	registerCalled bool
 }
 
-func (service *fakeUserService) Register(_ context.Context, input dto.CreateUserInput) (*domain.User, error) {
-	service.registerCalled = true
-	service.registerInput = input
-	return service.registerUser, service.registerErr
+func (fake *fakeUserService) Register(_ context.Context, input dto.CreateUserInput) (*service.UserRegistrationResult, error) {
+	fake.registerCalled = true
+	fake.registerInput = input
+	return fake.registerResult, fake.registerErr
 }
 
 func (service *fakeUserService) GetProfile(_ context.Context, _ uuid.UUID) (*domain.User, error) {
@@ -67,8 +68,10 @@ func assertErrorResponse(t *testing.T, response *http.Response, wantStatus int, 
 
 func TestUserHandlerCreate(t *testing.T) {
 	id := uuid.Must(uuid.NewV7())
-	service := &fakeUserService{registerUser: &domain.User{ID: id, Name: "Harun", Email: "harun@example.com"}}
-	app := newUserTestApp(service)
+	fake := &fakeUserService{registerResult: &service.UserRegistrationResult{
+		User: &domain.User{ID: id, Name: "Harun", Email: "harun@example.com"},
+	}}
+	app := newUserTestApp(fake)
 
 	request := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"name":"Harun","email":"harun@example.com","password":"password-yang-kuat"}`))
 	request.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
@@ -82,8 +85,64 @@ func TestUserHandlerCreate(t *testing.T) {
 	if response.StatusCode != http.StatusCreated {
 		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusCreated)
 	}
-	if service.registerInput.IdempotencyKey != "register-harun-001" {
-		t.Fatalf("idempotency key = %q, want header value", service.registerInput.IdempotencyKey)
+	if fake.registerInput.IdempotencyKey != "register-harun-001" {
+		t.Fatalf("idempotency key = %q, want header value", fake.registerInput.IdempotencyKey)
+	}
+	if replayed := response.Header.Get("Idempotency-Replayed"); replayed != "" {
+		t.Fatalf("Idempotency-Replayed = %q, want header to be absent", replayed)
+	}
+
+	var envelope dto.Envelope
+	if err := json.NewDecoder(response.Body).Decode(&envelope); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	if envelope.Message != "user created" {
+		t.Fatalf("message = %q, want %q", envelope.Message, "user created")
+	}
+	if envelope.Meta == nil {
+		t.Fatal("response meta is nil")
+	}
+	if envelope.Meta.IdempotencyReplayed {
+		t.Fatal("idempotency_replayed = true, want false")
+	}
+}
+
+func TestUserHandlerCreateReturnsReplayMetadata(t *testing.T) {
+	id := uuid.Must(uuid.NewV7())
+	fake := &fakeUserService{registerResult: &service.UserRegistrationResult{
+		User:                &domain.User{ID: id, Name: "Harun", Email: "harun@example.com"},
+		IdempotencyReplayed: true,
+	}}
+	app := newUserTestApp(fake)
+
+	request := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(`{"name":"Harun","email":"harun@example.com","password":"password-yang-kuat"}`))
+	request.Header.Set(fiber.HeaderContentType, fiber.MIMEApplicationJSON)
+	request.Header.Set("Idempotency-Key", "register-harun-001")
+	response, err := app.Test(request)
+	if err != nil {
+		t.Fatalf("app.Test() error = %v", err)
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want %d", response.StatusCode, http.StatusOK)
+	}
+	if replayed := response.Header.Get("Idempotency-Replayed"); replayed != "true" {
+		t.Fatalf("Idempotency-Replayed = %q, want %q", replayed, "true")
+	}
+
+	var envelope dto.Envelope
+	if err := json.NewDecoder(response.Body).Decode(&envelope); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	if envelope.Message != "idempotent request replayed" {
+		t.Fatalf("message = %q, want %q", envelope.Message, "idempotent request replayed")
+	}
+	if envelope.Meta == nil {
+		t.Fatal("response meta is nil")
+	}
+	if !envelope.Meta.IdempotencyReplayed {
+		t.Fatal("idempotency_replayed = false, want true")
 	}
 }
 
